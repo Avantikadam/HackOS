@@ -41,24 +41,27 @@ export async function getOrCreateParticipantQrPass(eventId: string): Promise<QrP
  * Fetch all published events where the user is an accepted participant or team leader
  */
 export async function fetchUserRegisteredEvents(userId: string): Promise<Event[]> {
-  // 1. Teams where user is leader or member
-  const { data: teamMembers } = await supabase
-    .from('team_members')
-    .select('team:teams(event_id)')
-    .eq('user_id', userId)
-    .eq('invitation_status', 'accepted')
-
-  const { data: leaderTeams } = await supabase
-    .from('teams')
-    .select('event_id')
-    .eq('team_leader_id', userId)
+  // Only events where the user belongs to a team with an accepted application.
+  const { data: acceptedApps } = await supabase
+    .from('applications')
+    .select('event_id, team:teams(team_leader_id, members:team_members(user_id, invitation_status))')
+    .eq('application_status', 'accepted')
 
   const eventIds = new Set<string>()
-  for (const row of teamMembers || []) {
-    if ((row as any).team?.event_id) eventIds.add((row as any).team.event_id)
-  }
-  for (const row of leaderTeams || []) {
-    if (row.event_id) eventIds.add(row.event_id)
+  for (const app of acceptedApps || []) {
+    const team = (app as any).team
+    if (!team) continue
+    if (team.team_leader_id === userId) {
+      eventIds.add(app.event_id)
+      continue
+    }
+    const members = Array.isArray(team.members) ? team.members : []
+    for (const member of members) {
+      if (member.user_id === userId && member.invitation_status === 'accepted') {
+        eventIds.add(app.event_id)
+        break
+      }
+    }
   }
 
   if (eventIds.size === 0) return []

@@ -257,37 +257,16 @@ export async function fetchQuotationByRequest(requestId: string): Promise<VenueQ
 
 export async function updateQuotationStatus(
   quotationId: string,
-  requestId: string,
+  _requestId: string,
   status: 'accepted' | 'rejected'
-): Promise<void> {
-  const { error } = await supabase
-    .from('venue_quotations')
-    .update({ quotation_status: status })
-    .eq('id', quotationId)
+): Promise<string | null> {
+  const { data, error } = await supabase.rpc('decide_venue_quotation', {
+    p_quotation_id: quotationId,
+    p_status: status
+  })
 
   if (error) throw error
-
-  if (status === 'accepted') {
-    const { data: existingAgreement } = await supabase
-      .from('venue_agreements')
-      .select('id')
-      .eq('venue_request_id', requestId)
-      .maybeSingle()
-
-    if (!existingAgreement) {
-      await supabase.from('venue_agreements').insert({
-        venue_request_id: requestId,
-        quotation_id: quotationId,
-        terms: {
-          deposit: '20% payable upon acceptance',
-          cancellation_policy: 'Full refund 14 days prior to event load-in',
-          jurisdiction: 'Standard institutional operations agreement'
-        },
-        agreement_status: 'awaiting_otp',
-        version: 1
-      })
-    }
-  }
+  return (data as string | null) ?? null
 }
 
 // --------------------------------------------------------------------
@@ -311,48 +290,97 @@ async function getCurrentUserId(): Promise<string | null> {
   return data?.user?.id ?? null
 }
 
-export async function sendOtpChallenge(
-  agreementId: string,
-  destination = 'authorized-rep@hackos.app'
-): Promise<{ success: boolean; devCode?: string; message: string }> {
-  const { data, error } = await supabase.functions.invoke('agreement-otp', {
-    body: { action: 'send', agreementId }
+interface OtpChallengeResult {
+  success: boolean
+  destination: string
+  message: string
+  dev_code?: string
+  expires_at?: string
+}
+
+export async function sendOtpChallenge(agreementId: string): Promise<OtpChallengeResult> {
+  const { data, error } = await supabase.rpc('request_agreement_otp', {
+    p_agreement_id: agreementId
   })
 
   if (error) throw new Error(error.message)
-
-  const response = (data ?? {}) as { error?: string; success?: boolean; devCode?: string; message?: string }
-
-  if (response.error) throw new Error(response.error)
-
-  return {
-    success: Boolean(response.success),
-    devCode: response.devCode,
-    message: response.message || `Verification code sent to ${destination}.`
-  }
+  return data as OtpChallengeResult
 }
 
 export async function verifyOtpAndAcceptAgreement(
   agreementId: string,
-  code: string
-): Promise<{ success: boolean; message: string; documentPath?: string }> {
-  const { data, error } = await supabase.functions.invoke('agreement-otp', {
-    body: { action: 'verify', agreementId, code }
+  code: string,
+  document?: Blob
+): Promise<{ success: boolean; documentPath?: string; message: string }> {
+  const { error } = await supabase.rpc('accept_venue_agreement', {
+    p_agreement_id: agreementId,
+    p_code: code.trim()
   })
 
-  if (error) {
-    return { success: false, message: error.message }
+  if (error) throw new Error(error.message)
+
+  let documentPath: string | undefined
+
+  if (document) {
+    const path = `${agreementId}.pdf`
+    const { error: uploadError } = await supabase.storage
+      .from('venue-agreements')
+      .upload(path, document, { upsert: true, contentType: 'application/pdf' })
+
+    if (uploadError) {
+      throw new Error(`Agreement accepted, but the signed PDF could not be uploaded: ${uploadError.message}`)
+    }
+
+    const { error: attachError } = await supabase.rpc('attach_agreement_document', {
+      p_agreement_id: agreementId,
+      p_storage_path: path
+    })
+
+    if (attachError) {
+      throw new Error(`Agreement accepted, but the PDF could not be linked: ${attachError.message}`)
+    }
+
+    documentPath = path
   }
 
-  const response = (data ?? {}) as { error?: string; success?: boolean; message?: string; documentPath?: string }
+  return {
+    success: true,
+    documentPath,
+    message: 'OTP verified. The venue authorization agreement is now signed.'
+  }
+}
 
-  if (response.error) {
-    return { success: false, message: response.error }
+export async function uploadSignedAgreement(agreementId: string, document: Blob): Promise<string> {
+  const path = `${agreementId}.pdf`
+  const { error: uploadError } = await supabase.storage
+    .from('venue-agreements')
+    .upload(path, document, { upsert: true, contentType: 'application/pdf' })
+
+  if (uploadError) throw new Error(uploadError.message)
+
+  const { error: attachError } = await supabase.rpc('attach_agreement_document', {
+    p_agreement_id: agreementId,
+    p_storage_path: path
+  })
+
+  if (attachError) throw new Error(attachError.message)
+
+  return path
+}
+
+export async function fetchAgreementDocumentUrl(agreementId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('venue_agreements')
+    .select('agreement_document_path')
+    .eq('id', agreementId)
+    .maybeSingle()
+
+  if (data?.agreement_document_path) {
+    const { data: signed } = await supabase.storage
+      .from('venue-agreements')
+      .createSignedUrl(data.agreement_document_path, 300)
+    if (signed?.signedUrl) return signed.signedUrl
   }
 
-  if (!response.success) {
-    return { success: false, message: response.message || 'Agreement acceptance failed.' }
-  }
-
-  return { success: true, message: response.message || 'Agreement OTP verified and accepted successfully.', documentPath: response.documentPath }
+  return null
 }

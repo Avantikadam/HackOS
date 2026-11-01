@@ -35,6 +35,7 @@ import {
   fetchPublishedResults
 } from '../../services/judgingService'
 import { generateAuthorizationPdf } from '../../utils/pdfGenerator'
+import { fetchAgreementDocumentUrl } from '../../services/venueService'
 import { OrganizerVerificationSection } from '../../components/verification/OrganizerVerificationSection'
 import type {
   Event,
@@ -853,14 +854,20 @@ export function EventDetailPage() {
                           <button
                             type="button"
                             onClick={() => {
-                              if (quotation && venueRequest?.venue) {
+                              void (async () => {
+                                if (!quotation || !venueRequest?.venue) return
+                                const storedUrl = await fetchAgreementDocumentUrl(agreement.id)
+                                if (storedUrl) {
+                                  window.open(storedUrl, '_blank')
+                                  return
+                                }
                                 generateAuthorizationPdf({
                                   agreement,
                                   quotation,
                                   venue: venueRequest.venue,
                                   event
                                 })
-                              }
+                              })()
                             }}
                             className="rounded-full bg-cobalt px-4 py-2 text-[0.82rem] font-semibold text-white shadow-soft hover:bg-cobalt-deep"
                           >

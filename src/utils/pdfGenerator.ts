@@ -1,14 +1,14 @@
 import { jsPDF } from 'jspdf'
 import type { VenueAgreement, VenueQuotation, Venue, Event } from '../types/database'
 
-export function generateAuthorizationPdf(params: {
+export function generateAuthorizationPdfBlob(params: {
   agreement: VenueAgreement
   quotation: VenueQuotation
   venue: Venue
   event: Event
   repName?: string
   repEmail?: string
-}) {
+}): Blob {
   const { agreement, quotation, venue, event, repName, repEmail } = params
   const doc = new jsPDF()
 
@@ -184,6 +184,25 @@ export function generateAuthorizationPdf(params: {
   )
 
   // Save/Download
-  doc.save(`HACKOS-Venue-Authorization-${event.name.replace(/\s+/g, '-')}.pdf`)
+  return doc.output('blob')
+}
+
+export function generateAuthorizationPdf(params: {
+  agreement: VenueAgreement
+  quotation: VenueQuotation
+  venue: Venue
+  event: Event
+  repName?: string
+  repEmail?: string
+}) {
+  const blob = generateAuthorizationPdfBlob(params)
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `HACKOS-Venue-Authorization-${params.event.name.replace(/\s+/g, '-')}.pdf`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
 

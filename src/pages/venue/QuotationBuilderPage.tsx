@@ -7,10 +7,12 @@ import {
   createQuotation,
   fetchQuotationByRequest,
   fetchAgreementByRequest,
+  fetchAgreementDocumentUrl,
   sendOtpChallenge,
+  uploadSignedAgreement,
   verifyOtpAndAcceptAgreement
 } from '../../services/venueService'
-import { generateAuthorizationPdf } from '../../utils/pdfGenerator'
+import { generateAuthorizationPdf, generateAuthorizationPdfBlob } from '../../utils/pdfGenerator'
 import type { VenueRequest, VenueQuotation, VenueAgreement } from '../../types/database'
 
 const NAV_ITEMS = [
@@ -55,6 +57,8 @@ export function QuotationBuilderPage() {
   // OTP Verification state
   const [otpSent, setOtpSent] = useState(false)
   const [otpCode, setOtpCode] = useState('')
+  const [otpDestination, setOtpDestination] = useState<string | null>(null)
+  const [devOtpCode, setDevOtpCode] = useState<string | null>(null)
   const [verifyingOtp, setVerifyingOtp] = useState(false)
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
@@ -131,6 +135,8 @@ export function QuotationBuilderPage() {
     try {
       const res = await sendOtpChallenge(agreement.id)
       setOtpSent(true)
+      setOtpDestination(res.destination)
+      setDevOtpCode(res.dev_code || null)
       setFeedback({ type: 'success', message: res.message })
     } catch (err) {
       setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Failed to send OTP.' })
@@ -145,7 +151,28 @@ export function QuotationBuilderPage() {
       const res = await verifyOtpAndAcceptAgreement(agreement.id, otpCode)
 
       if (res.success) {
-        setFeedback({ type: 'success', message: res.message })
+        const signedAgreement = await fetchAgreementByRequest(agreement.venue_request_id)
+        let pdfWarning = ''
+
+        if (signedAgreement && quotation && request?.venue && request?.event) {
+          try {
+            const blob = generateAuthorizationPdfBlob({
+              agreement: signedAgreement,
+              quotation,
+              venue: request.venue,
+              event: request.event,
+              repName: profile?.full_name || request.venue.authorized_rep_name || 'Representative',
+              repEmail: profile?.email || request.venue.contact_email || undefined
+            })
+            await uploadSignedAgreement(signedAgreement.id, blob)
+          } catch (pdfErr) {
+            pdfWarning = ` The signed PDF could not be stored: ${pdfErr instanceof Error ? pdfErr.message : 'unknown error'}.`
+          }
+        }
+
+        setFeedback({ type: 'success', message: `${res.message}${pdfWarning}` })
+        setOtpSent(false)
+        setDevOtpCode(null)
         await loadData()
       } else {
         setFeedback({ type: 'error', message: res.message })
@@ -355,7 +382,13 @@ export function QuotationBuilderPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        if (request.venue && request.event) {
+                        void (async () => {
+                          if (!request.venue || !request.event) return
+                          const storedUrl = await fetchAgreementDocumentUrl(agreement.id)
+                          if (storedUrl) {
+                            window.open(storedUrl, '_blank')
+                            return
+                          }
                           generateAuthorizationPdf({
                             agreement,
                             quotation,
@@ -363,7 +396,7 @@ export function QuotationBuilderPage() {
                             event: request.event,
                             repName: profile?.full_name || request.venue.authorized_rep_name || 'Representative'
                           })
-                        }
+                        })()
                       }}
                       className="inline-flex h-11 items-center gap-2 rounded-full bg-cobalt px-6 text-[0.88rem] font-semibold text-white shadow-soft hover:bg-cobalt-deep"
                     >
@@ -373,7 +406,9 @@ export function QuotationBuilderPage() {
                 ) : (
                   <div className="mt-6 space-y-4">
                     <p className="text-[0.88rem] text-ink-soft">
-                      An OTP verification code will be sent to your registered credentials (<strong>{user?.email}</strong>) to record representative acceptance.
+                      A one-time verification code will be issued to the registered venue representative
+                      {otpDestination ? <> (<strong>{otpDestination}</strong>)</> : <> (<strong>{user?.email}</strong>)</>} to
+                      record representative acceptance.
                     </p>
 
                     {!otpSent ? (

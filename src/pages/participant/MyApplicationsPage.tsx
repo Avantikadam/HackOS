@@ -5,9 +5,10 @@ import { DashboardLayout } from '../../layouts/DashboardLayout'
 import { fetchMyApplications, withdrawApplication } from '../../services/participantService'
 import { fetchRounds, fetchAnnouncements } from '../../services/eventService'
 import { fetchPublishedResults } from '../../services/judgingService'
-import { fetchAgreementByRequest, fetchQuotationByRequest } from '../../services/venueService'
+import { fetchAgreementByRequest, fetchAgreementDocumentUrl, fetchQuotationByRequest } from '../../services/venueService'
+import { getOrCreateParticipantQrPass, type QrPassResponse } from '../../services/checkinService'
 import { generateAuthorizationPdf } from '../../utils/pdfGenerator'
-import { QrCode } from '../../components/story/QrCode'
+import { ScannableQrCode } from '../../components/qr/ScannableQrCode'
 import { PublicVerificationBadge, VenueVerificationBadge } from '../../components/verification/PublicVerificationBadge'
 import type {
   Application,
@@ -41,6 +42,7 @@ export function MyApplicationsPage() {
   const [results, setResults] = useState<EventResult[]>([])
   const [agreement, setAgreement] = useState<VenueAgreement | null>(null)
   const [quotation, setQuotation] = useState<VenueQuotation | null>(null)
+  const [serverQrPass, setServerQrPass] = useState<QrPassResponse | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -88,6 +90,17 @@ export function MyApplicationsPage() {
       } else {
         setAgreement(null)
         setQuotation(null)
+      }
+
+      if (app.application_status === 'accepted' && app.event_id) {
+        try {
+          const pass = await getOrCreateParticipantQrPass(app.event_id)
+          setServerQrPass(pass)
+        } catch {
+          setServerQrPass(null)
+        }
+      } else {
+        setServerQrPass(null)
       }
     } catch (err) {
       console.error('Error loading sub-data:', err)
@@ -262,21 +275,22 @@ export function MyApplicationsPage() {
                     </div>
                   </div>
 
-                  {/* QR Pass */}
-                  <div className="mt-6 flex flex-col items-center gap-5 border-t border-line/70 pt-5 sm:flex-row">
-                    <div className="rounded-xl border border-line bg-white p-3 shadow-sm">
-                      <QrCode value={`HACKOS-PASS-${selectedApp.id.slice(0, 8)}`} size={110} />
+                  {selectedApp?.application_status === 'accepted' && serverQrPass && (
+                    <div className="mt-6 flex flex-col items-center gap-5 border-t border-line/70 pt-5 sm:flex-row">
+                      <div className="rounded-xl border border-line bg-white p-3 shadow-sm">
+                        <ScannableQrCode value={serverQrPass.qr_token} size={110} />
+                      </div>
+                      <div className="text-center sm:text-left">
+                        <span className="rounded-full bg-sage-tint px-2.5 py-0.5 text-[0.72rem] font-bold text-sage">
+                          ✔ Check-in QR Pass
+                        </span>
+                        <p className="mt-2 font-semibold text-ink">Electronic Admission Pass</p>
+                        <p className="text-[0.82rem] text-ink-muted">
+                          Present this server-issued pass at door check-in on load-in day. Works offline on mobile.
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-center sm:text-left">
-                      <span className="rounded-full bg-sage-tint px-2.5 py-0.5 text-[0.72rem] font-bold text-sage">
-                        ✔ Check-in QR Pass
-                      </span>
-                      <p className="mt-2 font-semibold text-ink">Electronic Admission Pass</p>
-                      <p className="text-[0.82rem] text-ink-muted">
-                        Present this pass at door check-in on load-in day. Works offline on mobile.
-                      </p>
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Approved Venue Details & Authorization Agreement */}
@@ -299,14 +313,20 @@ export function MyApplicationsPage() {
                         <button
                           type="button"
                           onClick={() => {
-                            if (selectedApp.event) {
+                            void (async () => {
+                              if (!selectedApp.event) return
+                              const storedUrl = await fetchAgreementDocumentUrl(agreement.id)
+                              if (storedUrl) {
+                                window.open(storedUrl, '_blank')
+                                return
+                              }
                               generateAuthorizationPdf({
                                 agreement,
                                 quotation,
                                 venue,
                                 event: selectedApp.event
                               })
-                            }
+                            })()
                           }}
                           className="inline-flex h-9 items-center gap-2 rounded-full bg-cobalt px-4 text-[0.82rem] font-semibold text-white shadow-soft hover:bg-cobalt-deep"
                         >

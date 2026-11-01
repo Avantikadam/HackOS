@@ -18,19 +18,7 @@ import type {
   VenueAgreement,
   VenueQuotation
 } from '../../types/database'
-
-function DiscoverIcon() {
-  return <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4"><circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.6"/><path d="m8 8 4 2-2 4-4-2 2-4Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/></svg>
-}
-function FileIcon() {
-  return <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4"><path d="M5 2.5h6l4 4V17a.5.5 0 0 1-.5.5h-9A.5.5 0 0 1 5 17V2.5Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/><path d="M11 2.5V7h4" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></svg>
-}
-
-const NAV_ITEMS = [
-  { label: 'Overview', href: '/participant', icon: <FileIcon /> },
-  { label: 'Discover', href: '/participant/discover', icon: <DiscoverIcon /> },
-  { label: 'My Applications', href: '/participant/applications', icon: <FileIcon /> },
-]
+import { PARTICIPANT_NAV_ITEMS } from '../../constants/navigation'
 
 export function MyApplicationsPage() {
   const { user } = useAuth()
@@ -132,7 +120,7 @@ export function MyApplicationsPage() {
   const venue = vr?.venue
 
   return (
-    <DashboardLayout navItems={NAV_ITEMS} roleLabel="Participant" roleColor="cobalt">
+    <DashboardLayout navItems={PARTICIPANT_NAV_ITEMS} roleLabel="Participant" roleColor="cobalt">
       <div className="max-w-[64rem]">
         <div className="mb-8">
           <p className="text-[0.72rem] font-bold uppercase tracking-[0.18em] text-cobalt">

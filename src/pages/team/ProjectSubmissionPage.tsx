@@ -39,6 +39,7 @@ function QrIcon() {
 }
 
 const TEAM_NAV_ITEMS = [
+  { label: 'Overview', href: '/participant', icon: <UsersIcon /> },
   { label: 'My Team & Code', href: '/team/my-team', icon: <UsersIcon /> },
   { label: 'Project Submission', href: '/team/submissions', icon: <CodeIcon /> },
   { label: 'My QR Pass', href: '/participant/qr-pass', icon: <QrIcon /> },

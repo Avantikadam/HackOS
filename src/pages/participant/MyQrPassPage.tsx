@@ -9,40 +9,7 @@ import {
   type QrPassResponse,
 } from '../../services/checkinService'
 import type { Event } from '../../types/database'
-
-function QrIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4">
-      <rect x="2.5" y="2.5" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="11.5" y="2.5" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="2.5" y="11.5" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M12 12h2v2h-2zM15 15h2v2h-2z" fill="currentColor" />
-    </svg>
-  )
-}
-
-function UsersIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4">
-      <path d="M7.5 5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM12.5 7.5a2.083 2.083 0 1 0 0-4.167 2.083 2.083 0 0 0 0 4.167ZM2.5 15v-.833a4.167 4.167 0 0 1 8.333 0V15M12.5 15v-.833a3.333 3.333 0 0 0-2.5-3.225" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function FileIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4">
-      <path d="M5 2.5h6l4 4V17a.5.5 0 0 1-.5.5h-9A.5.5 0 0 1 5 17V2.5Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-      <path d="M11 2.5V7h4" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-const PARTICIPANT_NAV = [
-  { label: 'Overview', href: '/participant', icon: <FileIcon /> },
-  { label: 'My Squad & Codes', href: '/team/my-team', icon: <UsersIcon /> },
-  { label: 'My QR Pass', href: '/participant/qr-pass', icon: <QrIcon /> },
-]
+import { PARTICIPANT_NAV_ITEMS, QrPassIcon as QrIcon } from '../../constants/navigation'
 
 export function MyQrPassPage() {
   const { user, profile } = useAuth()
@@ -107,7 +74,7 @@ export function MyQrPassPage() {
   const activeEvent = events.find((e) => e.id === selectedEventId)
 
   return (
-    <DashboardLayout navItems={PARTICIPANT_NAV} roleLabel="Participant Pass" roleColor="cobalt">
+    <DashboardLayout navItems={PARTICIPANT_NAV_ITEMS} roleLabel="Participant Pass" roleColor="cobalt">
       <div className="space-y-6 max-w-3xl mx-auto">
         {/* Header */}
         <div>

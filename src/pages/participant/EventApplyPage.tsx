@@ -5,20 +5,8 @@ import { DashboardLayout } from '../../layouts/DashboardLayout'
 import { fetchEventDetails, fetchRounds } from '../../services/eventService'
 import { applyForEvent } from '../../services/participantService'
 import { PublicVerificationBadge, VenueVerificationBadge } from '../../components/verification/PublicVerificationBadge'
+import { PARTICIPANT_NAV_ITEMS } from '../../constants/navigation'
 import type { Event, EventRound } from '../../types/database'
-
-function DiscoverIcon() {
-  return <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4"><circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.6"/><path d="m8 8 4 2-2 4-4-2 2-4Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/></svg>
-}
-function FileIcon() {
-  return <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4"><path d="M5 2.5h6l4 4V17a.5.5 0 0 1-.5.5h-9A.5.5 0 0 1 5 17V2.5Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/><path d="M11 2.5V7h4" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></svg>
-}
-
-const NAV_ITEMS = [
-  { label: 'Overview', href: '/participant', icon: <FileIcon /> },
-  { label: 'Discover', href: '/participant/discover', icon: <DiscoverIcon /> },
-  { label: 'My Applications', href: '/participant/applications', icon: <FileIcon /> },
-]
 
 export function EventApplyPage() {
   const { eventId } = useParams<{ eventId: string }>()
@@ -113,7 +101,7 @@ export function EventApplyPage() {
 
   if (loading) {
     return (
-      <DashboardLayout navItems={NAV_ITEMS} roleLabel="Participant" roleColor="cobalt">
+      <DashboardLayout navItems={PARTICIPANT_NAV_ITEMS} roleLabel="Participant" roleColor="cobalt">
         <div className="flex h-64 items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-cobalt" />
         </div>
@@ -123,7 +111,7 @@ export function EventApplyPage() {
 
   if (!event) {
     return (
-      <DashboardLayout navItems={NAV_ITEMS} roleLabel="Participant" roleColor="cobalt">
+      <DashboardLayout navItems={PARTICIPANT_NAV_ITEMS} roleLabel="Participant" roleColor="cobalt">
         <div className="rounded-2xl border border-line bg-white p-8 text-center">
           <p className="text-ink-muted">Event not found.</p>
           <Link to="/participant/discover" className="mt-4 inline-block font-semibold text-cobalt">
@@ -135,7 +123,7 @@ export function EventApplyPage() {
   }
 
   return (
-    <DashboardLayout navItems={NAV_ITEMS} roleLabel="Participant" roleColor="cobalt">
+    <DashboardLayout navItems={PARTICIPANT_NAV_ITEMS} roleLabel="Participant" roleColor="cobalt">
       <div className="mx-auto max-w-[50rem]">
         {/* Breadcrumb */}
         <div className="mb-2 flex items-center gap-2 text-[0.82rem] text-ink-muted">

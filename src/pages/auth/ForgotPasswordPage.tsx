@@ -22,7 +22,11 @@ export function ForgotPasswordPage() {
     })
     setLoading(false)
     if (err) {
-      setError(err.message)
+      const msg =
+        err.message === 'Failed to fetch'
+          ? 'Unable to connect to authentication server. Please check your internet connection and try again.'
+          : err.message
+      setError(msg)
       return
     }
     setSent(true)

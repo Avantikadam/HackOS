@@ -421,6 +421,13 @@ export function QuotationBuilderPage() {
                       </button>
                     ) : (
                       <div className="space-y-4 rounded-xl bg-parchment/60 p-5">
+                        {devOtpCode && (
+                          <div className="rounded-lg border border-amber/40 bg-amber-tint/50 p-3 text-[0.8rem] text-[#8a5a10]">
+                            <strong>Development mode:</strong> email delivery is not configured, so your
+                            verification code is <span className="font-mono text-[0.95rem] font-bold tracking-widest">{devOtpCode}</span>.
+                            It expires in 10 minutes.
+                          </div>
+                        )}
                         <label className="block text-[0.82rem] font-semibold text-ink">Enter 6-digit Verification OTP</label>
                         <div className="flex gap-3">
                           <input

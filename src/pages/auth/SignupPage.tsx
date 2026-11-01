@@ -46,7 +46,11 @@ export function SignupPage() {
     setLoading(false)
 
     if (authError) {
-      setError(authError.message)
+      const msg =
+        authError.message === 'Failed to fetch'
+          ? 'Unable to connect to authentication server. Please check your internet connection and try again.'
+          : authError.message
+      setError(msg)
       return
     }
 

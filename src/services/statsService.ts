@@ -41,26 +41,42 @@ export async function fetchOrganizerStats(userId: string): Promise<OrganizerStat
   const events = await fetchOrganizerEvents(userId)
   const eventIds = events.map((event) => event.id)
 
-  const applications = eventIds.length
-    ? ((await supabase
-        .from('applications')
-        .select('id, application_status')
-        .in('event_id', eventIds)) as unknown as Application[])
-    : []
+  let applications: Application[] = []
+  let teams: Array<{ id: string; event_id: string }> = []
+  let requestsData: VenueRequest[] = []
 
-  const teams = eventIds.length
-    ? ((await supabase
+  if (eventIds.length) {
+    const [applicationsResult, teamsResult] = await Promise.all([
+      supabase
+        .from('applications')
+        .select('id, application_status, team_id, event_id')
+        .in('event_id', eventIds),
+      supabase
         .from('teams')
         .select('id, event_id')
-        .in('event_id', eventIds)) as unknown as Array<{ id: string; event_id: string }>)
-    : []
+        .in('event_id', eventIds)
+    ])
 
-  const requests = await supabase
+    if (applicationsResult.error) throw applicationsResult.error
+    if (teamsResult.error) throw teamsResult.error
+
+    applications = (applicationsResult.data || []) as Application[]
+    teams = (teamsResult.data || []) as Array<{ id: string; event_id: string }>
+  }
+
+  const requestsResult = await supabase
     .from('venue_requests')
     .select('id, request_status')
     .eq('organizer_id', userId)
 
-  const requestsData = (requests.data || []) as VenueRequest[]
+  if (requestsResult.error) throw requestsResult.error
+  requestsData = (requestsResult.data || []) as VenueRequest[]
+
+  const acceptedTeamIds = new Set(
+    applications
+      .filter((app) => app.application_status === 'accepted' && app.team_id)
+      .map((app) => app.team_id as string)
+  )
 
   const now = new Date()
   const upcomingEvents = events.filter(
@@ -78,7 +94,7 @@ export async function fetchOrganizerStats(userId: string): Promise<OrganizerStat
     acceptedApplications: applications.filter((app) => app.application_status === 'accepted').length,
     rejectedApplications: applications.filter((app) => app.application_status === 'rejected').length,
     totalTeams: teams.length,
-    acceptedTeams: applications.filter((app) => app.application_status === 'accepted').length
+    acceptedTeams: acceptedTeamIds.size
   }
 }
 

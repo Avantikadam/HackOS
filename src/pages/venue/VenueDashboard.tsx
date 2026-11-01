@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { DashboardLayout } from '../../layouts/DashboardLayout'
-import { fetchVenueByOwner, fetchIncomingRequests } from '../../services/venueService'
+import { fetchVenuesByOwner, fetchIncomingRequests } from '../../services/venueService'
 import type { Venue, VenueRequest } from '../../types/database'
 
 const NAV_ITEMS = [
@@ -27,7 +27,7 @@ function InboxIcon() {
 
 export function VenueDashboard() {
   const { user, profile } = useAuth()
-  const [venue, setVenue] = useState<Venue | null>(null)
+  const [venues, setVenues] = useState<Venue[]>([])
   const [requests, setRequests] = useState<VenueRequest[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -40,13 +40,11 @@ export function VenueDashboard() {
     if (!user) return
     setLoading(true)
     try {
-      const v = await fetchVenueByOwner(user.id)
-      setVenue(v)
+      const ownedVenues = await fetchVenuesByOwner(user.id)
+      setVenues(ownedVenues)
 
-      if (v) {
-        const reqs = await fetchIncomingRequests(v.id)
-        setRequests(reqs)
-      }
+      const reqs = ownedVenues.length ? await fetchIncomingRequests() : []
+      setRequests(reqs)
     } catch (err) {
       console.error('Failed to load venue dashboard:', err)
     } finally {
@@ -55,6 +53,7 @@ export function VenueDashboard() {
   }
 
   const pendingRequests = requests.filter(r => r.request_status === 'pending')
+  const maxCapacity = venues.reduce((max, v) => Math.max(max, v.capacity || 0), 0)
 
   return (
     <DashboardLayout navItems={NAV_ITEMS} roleLabel="Venue Authority" roleColor="amber">
@@ -72,33 +71,37 @@ export function VenueDashboard() {
           </p>
         </div>
 
-        {/* Verification Status Banner */}
-        {venue && (
-          <div className="mb-8 flex flex-col items-start justify-between gap-4 rounded-2xl border border-line/90 bg-white p-5 shadow-soft sm:flex-row sm:items-center">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[0.78rem] font-bold uppercase tracking-wider text-ink-muted">Venue Status:</span>
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-[0.72rem] font-semibold ${
-                    venue.verification_status === 'verified'
-                      ? 'bg-sage-tint text-sage'
-                      : 'bg-amber-tint text-[#8a5a10]'
-                  }`}
+        {/* Verification Status Banners */}
+        {venues.length > 0 && (
+          <div className="mb-8 space-y-3">
+            {venues.map((venue) => (
+              <div key={venue.id} className="flex flex-col items-start justify-between gap-4 rounded-2xl border border-line/90 bg-white p-5 shadow-soft sm:flex-row sm:items-center">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[0.78rem] font-bold uppercase tracking-wider text-ink-muted">Venue Status:</span>
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-[0.72rem] font-semibold ${
+                        venue.verification_status === 'verified'
+                          ? 'bg-sage-tint text-sage'
+                          : 'bg-amber-tint text-[#8a5a10]'
+                      }`}
+                    >
+                      {venue.verification_status.toUpperCase()}
+                    </span>
+                  </div>
+                  <h2 className="mt-1 font-display text-[1.2rem] font-semibold text-ink">{venue.venue_name}</h2>
+                  <p className="text-[0.82rem] text-ink-muted">
+                    {venue.city}, {venue.state} · Capacity {venue.capacity} seats
+                  </p>
+                </div>
+                <Link
+                  to="/venue/verification"
+                  className="rounded-full border border-line bg-white px-4 py-2 text-[0.84rem] font-semibold text-ink hover:bg-parchment"
                 >
-                  {venue.verification_status.toUpperCase()}
-                </span>
+                  Verification Documents →
+                </Link>
               </div>
-              <h2 className="mt-1 font-display text-[1.2rem] font-semibold text-ink">{venue.venue_name}</h2>
-              <p className="text-[0.82rem] text-ink-muted">
-                {venue.city}, {venue.state} · Capacity {venue.capacity} seats
-              </p>
-            </div>
-            <Link
-              to="/venue/verification"
-              className="rounded-full border border-line bg-white px-4 py-2 text-[0.84rem] font-semibold text-ink hover:bg-parchment"
-            >
-              Verification Documents →
-            </Link>
+            ))}
           </div>
         )}
 
@@ -123,15 +126,15 @@ export function VenueDashboard() {
             </p>
           </div>
           <div className="rounded-2xl border border-line bg-white p-5 shadow-soft">
-            <p className="text-[0.72rem] font-bold uppercase text-ink-muted">Max Capacity</p>
+            <p className="text-[0.72rem] font-bold uppercase text-ink-muted">Venues / Max Capacity</p>
             <p className="tabular mt-2 font-display text-[2rem] font-semibold text-cobalt">
-              {venue?.capacity || 0}
+              {venues.length} / {maxCapacity}
             </p>
           </div>
         </div>
 
         {/* Action cards if no venue profile */}
-        {!venue && !loading && (
+        {venues.length === 0 && !loading && (
           <div className="mb-8 rounded-2xl border border-dashed border-amber/40 bg-amber-tint/20 p-8 text-center shadow-soft">
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-tint text-[#8a5a10]">
               <BuildingIcon />
